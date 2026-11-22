@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>知识库 · 面板设计稿 v2</title>
+<style>
+  /* 布局与用词严格对齐 docs/PRD.md：§9.2 三段式（库况条 / 建议队列 / 阶段按钮 + 任务区）、
+     §5.2 动作表（A01–A19）、§6.2 任务三档（内置 / 自定义 / 疑似本库任务）。
+     视觉沿用 DSH 自身的克制语法：一屏浅底、玻璃卡片、等宽数字、小字眉标。 */
+  :root{
+    --bg:#f3f1fb; --card:rgba(255,255,255,.87); --tile:#faf9ff;
+    --line:rgba(122,106,196,.16); --line-soft:rgba(122,106,196,.10);
+    --ink:#1b1a2a; --ink-2:#3d3a55; --muted:#6c6985; --muted-2:#928fab;
+    --accent:#6a5bf0; --ok:#2f9e6b; --warn:#bd8a1e; --danger:#c1495f;
+    --radius:14px; --shadow:0 1px 2px rgba(36,24,88,.05), 0 8px 24px -18px rgba(36,24,88,.28);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(900px 520px at 8% -10%, rgba(150,132,255,.20), transparent 62%),
+      radial-gradient(760px 480px at 96% 4%, rgba(120,190,255,.16), transparent 60%),
+      linear-gradient(180deg,#f6f4fd 0%,var(--bg) 44%,#efeef9 100%);
+    background-attachment:fixed; color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC",sans-serif;
+    font-size:13px; line-height:1.5; -webkit-font-smoothing:antialiased; padding:26px 30px 40px;
+  }
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+  .eyebrow{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  .shell{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(14px) saturate(1.04);-webkit-backdrop-filter:blur(14px) saturate(1.04);overflow:hidden}
+  .card-head{display:flex;align-items:baseline;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line-soft)}
+  .card-head h2{margin:0;font-size:13.5px;font-weight:650;letter-spacing:.1px}
+  .card-head .why{font-size:11.5px;color:var(--muted)}
+  .card-head .spacer{flex:1}
+
+  .btn{appearance:none;border:1px solid var(--line);background:#fff;color:var(--ink-2);font:inherit;font-size:11.5px;padding:5px 10px;border-radius:8px;cursor:pointer;transition:background .15s,border-color .15s,color .15s,transform .12s;white-space:nowrap}
+  .btn:hover{border-color:rgba(122,106,196,.30);color:var(--ink)}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .btn.primary:hover{background:#5b4ce6}
+  .btn.ghost{background:transparent}
+  .btn.mini{padding:3px 8px;font-size:11px;border-radius:7px}
+  .btn[disabled]{opacity:.42;cursor:not-allowed}
+  .btn .a{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:9px;color:var(--muted-2);margin-left:5px}
+  .btn.primary .a{color:rgba(255,255,255,.72)}
+
+  /* 1 · 库况条 */
+  .status{display:grid;grid-template-columns:repeat(7,minmax(0,1fr)) 140px}
+  .cell{padding:13px 14px;border-left:1px dashed var(--line-soft)}
+  .cell:first-child{border-left:0}
+  .cell .k{font-size:10.5px;color:var(--muted)}
+  .cell .v{margin-top:3px;font-size:19px;font-weight:680;line-height:1.15}
+  .cell.health{border-left:1px solid var(--line-soft)}
+  .cell.health .v{color:var(--ok)}
+  .cell.health .bar{margin-top:8px;height:3px;border-radius:2px;background:rgba(47,158,107,.16);overflow:hidden}
+  .cell.health .bar i{display:block;height:100%;width:78%;background:var(--ok);opacity:.7}
+  .status-foot{display:flex;align-items:center;gap:10px;padding:9px 16px;border-top:1px solid var(--line-soft);font-size:11px;color:var(--muted);flex-wrap:wrap}
+  .status-foot .dot{width:5px;height:5px;border-radius:50%;background:var(--muted-2);opacity:.55}
+  .status-foot .spacer{flex:1}
+  .status-foot .path{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10.5px;color:var(--muted-2)}
+
+  /* 2 · 建议队列 */
+  .queue{padding:14px 16px}
+  .queue .now{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:11px;background:linear-gradient(180deg,rgba(106,91,240,.075),rgba(106,91,240,.035));border:1px solid rgba(106,91,240,.18)}
+  .queue .now .mark{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:#fff;font-size:9px;flex:0 0 auto}
+  .queue .now .txt{flex:1;font-size:12.5px}
+  .queue .now .txt b{font-weight:680}
+  .queue .rest{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .queue .rest .label{font-size:10.5px;color:var(--muted-2);margin-right:2px}
+  .queue .rest .btn{opacity:.45}
+  .queue .rest .reason{font-size:10px;color:var(--muted-2);margin-left:2px}
+
+  /* 3 · 阶段按钮 */
+  .stage-row{display:grid;grid-template-columns:112px minmax(0,1fr);gap:12px;align-items:start;padding:11px 16px}
+  .stage-row + .stage-row{border-top:1px solid var(--line-soft)}
+  .stage-row .name{font-size:12px;font-weight:650;padding-top:3px}
+  .stage-row .name small{display:block;font-weight:400;font-size:10px;color:var(--muted-2);margin-top:1px;font-family:ui-monospace,"SF Mono",Menlo,monospace}
+  .stage-row .ops{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+
+  /* 4 · 任务区 */
+  .tabs{display:flex;padding:0 8px;border-bottom:1px solid var(--line-soft)}
+  .tab{appearance:none;border:0;background:transparent;font:inherit;font-size:11.5px;color:var(--muted);padding:9px 11px;cursor:pointer;position:relative;border-radius:8px 8px 0 0}
+  .tab:hover{color:var(--ink-2)}
+  .tab.active{color:var(--ink);font-weight:650;background:var(--tile)}
+  .tab.active::after{content:"";position:absolute;left:9px;right:9px;bottom:-1px;height:2px;background:var(--accent);border-radius:1px}
+  .tab .n{margin-left:5px;font-size:10px;color:var(--muted-2)}
+  .task{display:grid;grid-template-columns:30px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:9px 16px;font-size:12px}
+  .task + .task{border-top:1px solid var(--line-soft)}
+  .task .code{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;color:var(--muted-2)}
+  .task .name{font-weight:600}
+  .task .sub{display:block;font-size:10.5px;color:var(--muted-2);margin-top:1px;font-weight:400;font-family:ui-monospace,"SF Mono",Menlo,monospace}
+  .task .when{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;color:var(--muted);text-align:right;white-space:nowrap}
+  .switch{width:30px;height:17px;border-radius:999px;background:rgba(122,106,196,.12);border:1px solid var(--line-soft);position:relative;cursor:pointer;transition:background .18s,border-color .18s}
+  .switch i{position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(30,20,70,.18);transition:left .18s}
+  .switch.on{background:rgba(47,158,107,.55);border-color:rgba(47,158,107,.55)}
+  .switch.on i{left:16px}
+
+  /* 5 · 知识页 */
+  .pgrid{display:grid;grid-template-columns:minmax(0,1fr) 96px 84px 70px auto;gap:10px;align-items:center}
+  .phead{padding:8px 16px;font-size:10px;letter-spacing:.08em;color:var(--muted-2);border-bottom:1px solid var(--line-soft)}
+  .prow{padding:8px 16px;font-size:12px}
+  .prow + .prow{border-top:1px solid var(--line-soft)}
+  .prow:hover{background:rgba(106,91,240,.035)}
+  .prow .title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prow .title .id{display:block;font-size:10px;color:var(--muted-2);font-weight:400;margin-top:1px;font-family:ui-monospace,"SF Mono",Menlo,monospace}
+  .prow .inb{display:flex;align-items:center;gap:6px}
+  .prow .inb .track{height:3px;border-radius:2px;background:rgba(122,106,196,.10);width:40px;overflow:hidden}
+  .prow .inb .track i{display:block;height:100%;background:var(--accent);opacity:.6}
+  .prow .inb .n{font-size:10px;color:var(--muted-2)}
+  .prow .upd{font-size:10.5px;color:var(--muted-2);text-align:right}
+  .badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:6px;font-size:10px;border:1px solid transparent}
+  .b-mute{background:rgba(122,106,196,.07);color:var(--muted);border-color:var(--line-soft)}
+  .b-ok{background:rgba(47,158,107,.09);color:#247d55;border-color:rgba(47,158,107,.2)}
+  .b-warn{background:rgba(189,138,30,.10);color:#8f6413;border-color:rgba(189,138,30,.22)}
+  .b-err{background:rgba(193,73,95,.09);color:#a83b50;border-color:rgba(193,73,95,.2)}
+
+  .foot{padding:9px 16px;border-top:1px solid var(--line-soft);font-size:10.5px;color:var(--muted-2);display:flex;gap:10px;flex-wrap:wrap}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);background:rgba(27,26,42,.92);color:#fff;font-size:11.5px;padding:8px 14px;border-radius:9px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:9}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .main{display:grid;grid-template-columns:1.12fr .88fr;gap:14px;align-items:start}
+  .col{display:flex;flex-direction:column;gap:14px}
+
+  /* 附 · log.md */
+  .log-line{display:grid;grid-template-columns:46px 30px minmax(0,1fr);gap:8px;padding:7px 16px;font-size:11px}
+  .log-line + .log-line{border-top:1px solid var(--line-soft)}
+  .log-line .t{font-family:ui-monospace,"SF Mono",Menlo,monospace;color:var(--muted-2);font-size:10.5px}
+  .log-line .a{font-family:ui-monospace,"SF Mono",Menlo,monospace;color:var(--accent);font-size:10px}
+  .log-line .x{color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  @media (max-width:1080px){
+    .main{grid-template-columns:1fr}
+    .status{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .cell:nth-child(5){border-left:0}
+  }
+  @media (max-width:760px){
+    body{padding:14px 12px 26px}
+    .status{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .cell:nth-child(even){border-left:0}
+    .pgrid{grid-template-columns:minmax(0,1fr) 70px auto}
+    .pgrid > :nth-child(3),.pgrid > :nth-child(4){display:none}
+    .task{grid-template-columns:24px minmax(0,1fr) auto}
+    .task .when{display:none}
+    .stage-row{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="card" style="padding:18px 20px;display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+    <div style="flex:1;min-width:260px">
+      <div class="eyebrow">LLM Wiki · 知识库</div>
+      <div style="display:flex;align-items:baseline;gap:10px;margin-top:6px">
+        <span style="font-size:20px;font-weight:700;letter-spacing:.2px">brain</span>
+        <span style="font-size:11.5px;color:var(--muted)">纯 Markdown 库 · 四个阶段目录 · 不建数据库</span>
+      </div>
+      <div class="mono" style="margin-top:6px;font-size:10.5px;color:var(--muted-2)">/Users/lion/workspace/obsidian-workspace/llm-wiki</div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="btn"><span class="mono">A16</span> 建库</button>
+      <button class="btn">在 Obsidian 打开库</button>
+      <button class="btn"><span class="mono">A15</span> 重建索引</button>
+    </div>
+  </div>
+
+  <!-- 1 · 库况条 -->
+  <div class="card">
+    <div class="card-head">
+      <h2>库况</h2>
+      <span class="why">7 个数字全部来自 2-wiki 与 3-review 的扫描结果，只读</span>
+      <span class="spacer"></span>
+      <span class="mono" style="font-size:10.5px;color:var(--muted-2)">刷新 3s</span>
+    </div>
+    <div class="status">
+      <div class="cell"><div class="k">页</div><div class="v">42</div></div>
+      <div class="cell"><div class="k">stub</div><div class="v">7</div></div>
+      <div class="cell"><div class="k">待编译</div><div class="v">12</div></div>
+      <div class="cell"><div class="k">待审</div><div class="v">3</div></div>
+      <div class="cell"><div class="k">过期</div><div class="v">9</div></div>
+      <div class="cell"><div class="k">断裂</div><div class="v">2</div></div>
+      <div class="cell health"><div class="k">健康</div><div class="v">78%</div><div class="bar"><i></i></div></div>
+    </div>
+    <div class="status-foot">
+      <span>占用 38 MB</span><span style="color:var(--muted-2)">（附件 31 / 中间物 6 / 备份 1）</span>
+      <span class="dot"></span><span>git 关</span>
+      <span class="dot"></span><span>音频 未启用</span>
+      <span class="dot"></span><span>Obsidian vault <span class="mono">llm-wiki</span> · 走 <span class="mono">obsidian://</span> 深链</span>
+      <span class="spacer"></span>
+      <span class="path">0-inbox · 1-raw · 2-wiki · 3-review</span>
+    </div>
+  </div>
+
+  <!-- 2 · 建议队列 -->
+  <div class="card">
+    <div class="card-head">
+      <h2>建议队列</h2>
+      <span class="why">一次只推一件事；其余动作置灰并写出原因，不让用户自己判断优先级</span>
+    </div>
+    <div class="queue">
+      <div class="now">
+        <span class="mark">▶</span>
+        <span class="txt"><b>12 条待编译素材</b> 停在 1-raw，编译后才会进 2-wiki</span>
+        <button class="btn primary"><span class="mono">A07</span> 编译素材</button>
+      </div>
+      <div class="rest">
+        <span class="label">其余动作</span>
+        <button class="btn" disabled><span class="mono">A05</span> 确认入库</button>
+        <span class="reason">队列空（0-inbox 无待确认）</span>
+        <button class="btn" disabled><span class="mono">A09</span> 合并提案</button>
+        <span class="reason">3-review 无提案</span>
+        <button class="btn" disabled><span class="mono">A10</span> 过期清理</button>
+        <span class="reason">无过期素材</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="col">
+    <!-- 3 · 阶段按钮 -->
+    <div class="card">
+      <div class="card-head">
+        <h2>阶段按钮</h2>
+        <span class="why">摄取 → 确认 → 编译 → 审 → 维护，每行一组动作，按钮名与 A 编号取自 PRD §5.2</span>
+      </div>
+
+      <div class="stage-row">
+        <div class="name">摄取<small>0-inbox</small></div>
+        <div class="ops">
+          <button class="btn"><span class="mono">A01</span> 灵感落盘</button>
+          <button class="btn"><span class="mono">A02</span> 文件接收</button>
+          <button class="btn"><span class="mono">A03</span> 预处理</button>
+          <button class="btn"><span class="mono">A04</span> 采集执行</button>
+        </div>
+      </div>
+
+      <div class="stage-row">
+        <div class="name">确认<small>0-inbox → 1-raw</small></div>
+        <div class="ops">
+          <button class="btn primary"><span class="mono">A05</span> 确认入库</button>
+          <button class="btn"><span class="mono">A06</span> 撤回素材</button>
+          <span style="font-size:10.5px;color:var(--muted-2)">像素级核对后才进 1-raw，避免垃圾污染库</span>
+        </div>
+      </div>
+
+      <div class="stage-row">
+        <div class="name">编译<small>1-raw → 2-wiki</small></div>
+        <div class="ops">
+          <button class="btn"><span class="mono">A07</span> 编译素材</button>
+          <button class="btn"><span class="mono">A08</span> 缺口补页</button>
+        </div>
+      </div>
+
+      <div class="stage-row">
+        <div class="name">审<small>3-review</small></div>
+        <div class="ops">
+          <button class="btn"><span class="mono">A09</span> 合并提案</button>
+          <button class="btn"><span class="mono">A10</span> 过期清理</button>
+          <span style="font-size:10.5px;color:var(--muted-2)">机器只提议，人来裁决</span>
+        </div>
+      </div>
+
+      <div class="stage-row">
+        <div class="name">维护<small>2-wiki</small></div>
+        <div class="ops">
+          <button class="btn"><span class="mono">A11</span> 结构体检</button>
+          <button class="btn"><span class="mono">A12</span> 去重扫描</button>
+          <button class="btn"><span class="mono">A13</span> 矛盾扫描</button>
+          <button class="btn"><span class="mono">A14</span> 过期页提醒</button>
+          <button class="btn"><span class="mono">A15</span> 重建索引</button>
+          <button class="btn"><span class="mono">A17</span> 回滚</button>
+          <button class="btn"><span class="mono">A18</span> 安全清理</button>
+          <button class="btn"><span class="mono">A19</span> 深度清理</button>
+        </div>
+      </div>
+
+      <div class="foot">
+        <span>写操作只落 2-wiki / 3-review；动 1-raw 及以前要先在面板确认</span>
+        <span style="flex:1"></span>
+        <span class="mono">A11–A19 均可被 J01–J10 定时触发</span>
+      </div>
+    </div>
+
+    <!-- 附 · 2-wiki/log.md -->
+    <div class="card">
+      <div class="card-head">
+        <h2 class="mono" style="font-size:12.5px">2-wiki/log.md</h2>
+        <span class="why">每个动作落一行，回滚时可对上 commit</span>
+      </div>
+      <div class="log-line"><span class="t">09:12</span><span class="a">A07</span><span class="x">编译素材 3 条 → 2-wiki/concepts</span></div>
+      <div class="log-line"><span class="t">09:12</span><span class="a">A15</span><span class="x">重建索引 index.md · 42 页</span></div>
+      <div class="log-line"><span class="t">08:30</span><span class="a">A04</span><span class="x">采集执行「胰岛素抵抗」→ 0-inbox/collect</span></div>
+      <div class="log-line"><span class="t">昨天</span><span class="a">A09</span><span class="x">合并提案 1 条 · 冲突 0</span></div>
+    </div>
+    </div>
+
+    <!-- 4 · 任务区 -->
+    <div class="card">
+      <div class="card-head">
+        <h2>任务区</h2>
+        <span class="why">三档：内置 / 自定义 / 疑似本库任务，对应 PRD §6.2</span>
+      </div>
+      <div class="tabs">
+        <button class="tab active">内置<span class="n">9</span></button>
+        <button class="tab">自定义<span class="n">2</span></button>
+        <button class="tab">疑似本库任务<span class="n">1</span></button>
+      </div>
+
+      <div class="task"><span class="code">J01</span><span><span class="name">索引重建</span><span class="sub">2-wiki/index.md · 库变更后触发</span></span><span class="when">事件</span><span class="switch on"><i></i></span></div>
+      <div class="task"><span class="code">J02</span><span><span class="name">单页体检</span><span class="sub">保存页面后触发</span></span><span class="when">事件</span><span class="switch on"><i></i></span></div>
+      <div class="task"><span class="code">J03</span><span><span class="name">提案过期</span><span class="sub">3-review 超时提案自动归档</span></span><span class="when">09:10 每天</span><span class="switch on"><i></i></span></div>
+      <div class="task"><span class="code">J04</span><span><span class="name">重复扫描</span><span class="sub">A12 · 只出提案不改页</span></span><span class="when">周一 09:20</span><span class="switch on"><i></i></span></div>
+      <div class="task"><span class="code">J05</span><span><span class="name">矛盾扫描</span><span class="sub">A13 · 频率可改</span></span><span class="when">周一 09:30</span><span class="switch on"><i></i></span></div>
+      <div class="task"><span class="code">J06</span><span><span class="name">过期页提醒</span><span class="sub">A14 · 只在面板提示</span></span><span class="when">09:40 每天</span><span class="switch on"><i></i></span></div>
+      <div class="task"><span class="code">J07</span><span><span class="name">主题采集</span><span class="sub">A04 · 采集源与主题自选</span></span><span class="when">08:30 每天</span><span class="switch"><i></i></span></div>
+      <div class="task"><span class="code">J08</span><span><span class="name">缺口补页</span><span class="sub">A08 · 补齐指向不存在的页</span></span><span class="when">手动</span><span class="switch"><i></i></span></div>
+      <div class="task"><span class="code">J09</span><span><span class="name">垃圾清理</span><span class="sub">A18 · 预览后才删</span></span><span class="when">周日 09:50</span><span class="switch on"><i></i></span></div>
+
+      <div class="foot">
+        <span>归属靠 title 前缀 <span class="mono">[wiki]</span> 与 prompt 首行 <span class="mono">owner: llm-wiki</span> 认定</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5 · 知识页 -->
+  <div class="card">
+    <div class="card-head">
+      <h2>知识页</h2>
+      <span class="why">2-wiki 下按入链排序，最多 60 条；点"打开"直接跳 Obsidian，0 token</span>
+      <span class="spacer"></span>
+      <span class="mono" style="font-size:10.5px;color:var(--muted-2)">42 页</span>
+    </div>
+    <div class="phead pgrid"><span>页</span><span>状态</span><span>入链</span><span style="text-align:right">更新</span><span></span></div>
+
+    <div class="prow pgrid">
+      <span class="title">胰岛素抵抗<span class="id">2-wiki/concepts/insulin-resistance.md</span></span>
+      <span><span class="badge b-ok">active</span></span>
+      <span class="inb"><span class="track"><i style="width:80%"></i></span><span class="n">← 8</span></span>
+      <span class="upd">3 天前</span>
+      <button class="btn mini">打开</button>
+    </div>
+    <div class="prow pgrid">
+      <span class="title">连续血糖监测<span class="id">2-wiki/concepts/cgm.md</span></span>
+      <span><span class="badge b-warn">stub</span></span>
+      <span class="inb"><span class="track"><i style="width:30%"></i></span><span class="n">← 3</span></span>
+      <span class="upd">9 天前</span>
+      <button class="btn mini">打开</button>
+    </div>
+    <div class="prow pgrid">
+      <span class="title">低碳水饮食的边界<span class="id">2-wiki/answers/low-carb-boundary.md</span></span>
+      <span><span class="badge b-err">contested</span></span>
+      <span class="inb"><span class="track"><i style="width:55%"></i></span><span class="n">← 5</span></span>
+      <span class="upd">今天</span>
+      <button class="btn mini">打开</button>
+    </div>
+    <div class="prow pgrid">
+      <span class="title">二甲双胍与运动<span class="id">2-wiki/entities/metformin.md</span></span>
+      <span><span class="badge b-mute">deprecated</span></span>
+      <span class="inb"><span class="track"><i style="width:10%"></i></span><span class="n">← 1</span></span>
+      <span class="upd">21 天前</span>
+      <button class="btn mini">打开</button>
+    </div>
+
+    <div class="foot">
+      <span>状态四值：active / stub / contested / deprecated</span>
+      <span style="flex:1"></span>
+      <span class="mono">打开 = POST /api/llm-wiki/open → obsidian:// 深链</span>
+    </div>
+  </div>
+
+  <div class="foot" style="border:0;background:transparent;padding:2px 4px">
+    <span>术语出处：<span class="mono">docs/PRD.md</span> §5.2 动作表 · §6.2 任务三档 · §9.2 三段式布局；本稿未新增任何 PRD 之外的词。</span>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+  const toast = (msg) => {
+    const el = document.getElementById('toast')
+    el.textContent = msg
+    el.classList.add('show')
+    clearTimeout(toast._t)
+    toast._t = setTimeout(() => el.classList.remove('show'), 1600)
+  }
+  document.querySelectorAll('.btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.hasAttribute('disabled')) return
+      toast(btn.textContent.trim() + ' · 设计稿，未接真实动作')
+    })
+  })
+  document.querySelectorAll('.switch').forEach(sw => {
+    sw.addEventListener('click', () => {
+      sw.classList.toggle('on')
+      toast(sw.classList.contains('on') ? '任务已开启（原型）' : '任务已关闭（原型）')
+    })
+  })
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+      tab.classList.add('active')
+      toast('切到「' + tab.textContent.trim() + '」：占位，仅演示三档切换')
+    })
+  })
+</script>
+</body>
+</html>

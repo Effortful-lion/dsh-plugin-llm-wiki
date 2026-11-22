@@ -1,0 +1,9 @@
+# 构建产物：lib/ **入仓**——DSH 直接加载 lib/index.js，
+# 这样 `dsh plugin add github:…` 不用先本地 build。改源码请改 core/ host/ client/。
+.tmp/
+
+# 依赖：这里只放 tsc 解析用的符号链接，不入库
+node_modules/
+
+# 系统杂物
+.DS_Store

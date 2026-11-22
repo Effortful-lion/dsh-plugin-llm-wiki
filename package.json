@@ -1,0 +1,73 @@
+{
+  "name": "dsh-plugin-llm-wiki",
+  "version": "0.6.0",
+  "private": false,
+  "description": "LLM Wiki · 超级大脑：把知识库做成一个纯 Markdown 文件夹 + DSH 里的「知识库」面板 + 0 token 机械动作 + 可调度的自动化任务；正文用 Obsidian 打开。(DSH plugin: Markdown-first second brain with an in-app knowledge-base panel, zero-token actions, and scheduled maintenance.)",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-slots"
+      ]
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "dsh": ">=0.2.2-rc.3"
+  },
+  "scripts": {
+    "build": "bash scripts/build.sh",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "smoke": "tsx scripts/smoke.ts",
+    "integration": "tsx scripts/integration.ts",
+    "test": "npm run smoke && npm run integration",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "docs",
+    "package.json"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "obsidian",
+    "wiki",
+    "knowledge-base",
+    "second-brain",
+    "markdown",
+    "pkm"
+  ],
+  "homepage": "https://github.com/Effortful-lion/dsh-plugin-llm-wiki#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Effortful-lion/dsh-plugin-llm-wiki.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Effortful-lion/dsh-plugin-llm-wiki/issues"
+  },
+  "author": "younglion <server-lion@qq.com> (https://github.com/Effortful-lion)",
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>知识库面板 · 主题预览 v8</title>
+<style>
+/* DSH 的语义 token 在这里用兜底值顶替：预览页不在宿主里，拿不到 --dsw-alias-*。
+   真实面板里这些变量由宿主注入，深浅色跟随 DSH 的主题设置。 */
+:root{
+  --dsw-alias-label-primary:#1b1a2a; --dsw-alias-label-secondary:#403d58;
+  --dsw-alias-label-caption:#6f6c87; --dsw-alias-bg-primary:#fff;
+  --dsw-alias-bg-secondary:#faf9ff; --dsw-alias-border-l4:rgba(122,106,196,.16);
+  --dsw-alias-border-l5:rgba(122,106,196,.09); --dsw-alias-accent-primary:#6a5bf0;
+  --dsw-alias-state-success-primary:#12784a; --dsw-alias-state-warn-label:#8a5a05;
+  --dsw-alias-state-error-primary:#b02a1c;
+}
+html[data-theme="dark"]{
+  --dsw-alias-label-primary:#eceaf6; --dsw-alias-label-secondary:#c6c2da;
+  --dsw-alias-label-caption:#9893b0; --dsw-alias-bg-primary:#191826;
+  --dsw-alias-bg-secondary:#14131f; --dsw-alias-border-l4:rgba(150,138,220,.22);
+  --dsw-alias-border-l5:rgba(150,138,220,.12); --dsw-alias-accent-primary:#8b7cff;
+  --dsw-alias-state-success-primary:#4ecf94; --dsw-alias-state-warn-label:#e0b25f;
+  --dsw-alias-state-error-primary:#ff8b7d;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC",sans-serif;
+  background:var(--dsw-alias-bg-secondary); color:var(--dsw-alias-label-primary);
+  -webkit-font-smoothing:antialiased;
+}
+.preview-toolbar{max-width:1080px;margin:0 auto;padding:20px 16px 0;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--dsw-alias-label-caption)}
+.preview-toolbar h1{font-size:13px;margin:0;color:var(--dsw-alias-label-secondary);font-weight:600}
+.preview-toolbar .spacer{flex:1}
+.preview-toolbar button{appearance:none;border:1px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-primary);color:inherit;font:inherit;padding:4px 10px;border-radius:7px;cursor:pointer}
+.preview-wrap{max-width:1080px;margin:0 auto;padding:10px 16px 30px}
+.preview-wrap .lw{height:auto;overflow:visible;border-radius:16px;border:1px solid var(--dsw-alias-border-l5)}
+/* ↓↓ 面板自己的主题（与 client/view.tsx 里的 CSS 完全一致） ↓↓ */
+
+/* 主题层。
+   取向：一块"工作台"——信息密度高、层级靠字重与细线建立；底色给一层极淡的
+   主题色晕染，让白卡片有地方浮起来，而不是整屏一张白纸。
+   全部走 --dsw-alias-* 语义 token，跟随宿主深浅色；token 缺失时才落到兜底值。 */
+.lw{
+  --lw-ink:var(--dsw-alias-label-primary,#1b1a2a);
+  --lw-ink2:var(--dsw-alias-label-secondary,#403d58);
+  --lw-dim:var(--dsw-alias-label-caption,#6f6c87);
+  --lw-line:var(--dsw-alias-border-l4,rgba(122,106,196,.16));
+  --lw-line2:var(--dsw-alias-border-l5,rgba(122,106,196,.09));
+  /* 语义色一律取宿主的状态 token：深浅色由 DSH 决定，这里不再自己判断主题。
+     底色/描边用 color-mix 从同一个颜色推出来，不会出现"深色模式里一坨深棕"。 */
+  --lw-accent:var(--dsw-alias-accent-primary,#6a5bf0);
+  --lw-accent-wash:color-mix(in srgb, var(--lw-accent) 7%, transparent);
+  --lw-accent-line:color-mix(in srgb, var(--lw-accent) 34%, transparent);
+  --lw-surface:var(--dsw-alias-bg-primary,#fff);
+  --lw-ok:var(--dsw-alias-state-success-primary,#12784a);
+  --lw-ok-wash:color-mix(in srgb, var(--lw-ok) 11%, transparent);
+  --lw-ok-line:color-mix(in srgb, var(--lw-ok) 34%, transparent);
+  --lw-warn:var(--dsw-alias-state-warn-label,#8a5a05);
+  --lw-warn-wash:color-mix(in srgb, var(--lw-warn) 13%, transparent);
+  --lw-danger:var(--dsw-alias-state-error-primary,#b02a1c);
+  --lw-danger-wash:color-mix(in srgb, var(--lw-danger) 9%, transparent);
+  --lw-danger-line:color-mix(in srgb, var(--lw-danger) 32%, transparent);
+  --lw-shadow:0 1px 2px rgba(20,18,45,.045),0 14px 30px -28px rgba(20,18,45,.55);
+  display:flex;flex-direction:column;gap:12px;padding:16px 16px 26px;height:100%;overflow-y:auto;box-sizing:border-box;
+  font-size:13px;line-height:1.5;color:var(--lw-ink);
+  background:
+    radial-gradient(120% 70% at 0% -20%, var(--lw-accent-wash), transparent 62%),
+    radial-gradient(90% 60% at 100% 0%, rgba(96,150,220,.05), transparent 60%);
+}
+.lw *{box-sizing:border-box}
+.lw-mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+
+/* 顶部：库身份。左侧一道主题色竖条做锚点，不做大标题堆叠。 */
+.lw-top{
+  position:relative;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;padding:15px 16px 15px 18px;
+  border:1px solid var(--lw-line);border-radius:14px;background:var(--lw-surface);box-shadow:var(--lw-shadow);overflow:hidden;
+}
+.lw-top::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:linear-gradient(180deg,var(--lw-accent),rgba(106,91,240,.35))}
+.lw-top::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,var(--lw-accent-wash),transparent 46%)}
+.lw-top>*{position:relative;z-index:1}
+.lw-top .who{flex:1;min-width:230px}
+.lw-top h1{margin:0;font-size:16.5px;font-weight:700;letter-spacing:.15px;line-height:1.35}
+.lw-top .sub{margin-top:4px;font-size:11.5px;color:var(--lw-ink2);line-height:1.55}
+.lw-top .where{margin-top:6px;font-size:10.5px;color:var(--lw-dim);word-break:break-all}
+.lw-top .acts{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+
+/* 卡片 */
+.lw-card{border:1px solid var(--lw-line);border-radius:13px;background:var(--lw-surface);box-shadow:var(--lw-shadow);overflow:hidden}
+.lw-chead{
+  display:flex;align-items:baseline;gap:8px;padding:11px 15px;flex-wrap:wrap;
+  border-bottom:1px solid var(--lw-line2);
+  background:linear-gradient(180deg,var(--lw-accent-wash),transparent);
+}
+.lw-chead h2{margin:0;font-size:12.5px;font-weight:680;letter-spacing:.1px}
+.lw-chead .why{font-size:10.5px;color:var(--lw-dim);line-height:1.4}
+.lw-spacer{flex:1}
+.lw-badge{font-size:12px;font-weight:700;color:var(--lw-accent);font-variant-numeric:tabular-nums}
+.lw-badge span{font-weight:400;font-size:10px;color:var(--lw-dim);margin-left:3px}
+
+/* 按钮：四档语义。
+   neutral = 次要动作；primary = 当前页的主动作；go = 建设性裁决（入库/合并/启用）；
+   danger = 不可逆（删除）；run 是 go 的轻量版本，用在"启用"这类开关上。 */
+.lw-btn{
+  appearance:none;border:1px solid var(--lw-line);background:var(--lw-surface);color:var(--lw-ink2);
+  font:inherit;font-size:12px;padding:6px 12px;min-height:30px;border-radius:8px;cursor:pointer;white-space:nowrap;
+  transition:background .15s,border-color .15s,color .15s,box-shadow .15s;
+}
+.lw-btn:hover:not(:disabled){border-color:var(--lw-accent-line);background:var(--lw-accent-wash);color:var(--lw-ink)}
+.lw-btn:active:not(:disabled){box-shadow:inset 0 1px 2px rgba(20,18,45,.10)}
+.lw-btn:focus-visible{outline:2px solid var(--lw-accent);outline-offset:2px}
+.lw-btn:disabled{opacity:.4;cursor:not-allowed}
+.lw-btn.primary{
+  background:var(--lw-accent);border-color:var(--lw-accent);color:#fff;font-weight:600;
+  box-shadow:0 1px 2px rgba(60,44,160,.22),0 8px 18px -14px rgba(60,44,160,.7);
+}
+.lw-btn.primary:hover:not(:disabled){background:color-mix(in srgb,var(--lw-accent) 92%,#000);border-color:transparent;color:#fff}
+.lw-btn.mini{font-size:11.5px;padding:4px 10px;min-height:26px;border-radius:7px}
+.lw-btn.go{color:var(--lw-ok);border-color:var(--lw-ok-line);background:var(--lw-ok-wash);font-weight:600}
+.lw-btn.go:hover:not(:disabled){background:color-mix(in srgb, var(--lw-ok) 16%, transparent);border-color:color-mix(in srgb, var(--lw-ok) 48%, transparent);color:var(--lw-ok)}
+.lw-btn.run{color:var(--lw-ok);border-color:var(--lw-ok-line);background:transparent;font-weight:600}
+.lw-btn.run:hover:not(:disabled){background:var(--lw-ok-wash);border-color:color-mix(in srgb, var(--lw-ok) 48%, transparent)}
+.lw-btn.danger{color:var(--lw-danger);border-color:var(--lw-danger-line);background:transparent}
+.lw-btn.danger:hover:not(:disabled){background:var(--lw-danger-wash);border-color:color-mix(in srgb, var(--lw-danger) 48%, transparent);color:var(--lw-danger)}
+.lw-btn.tile{
+  min-height:36px;height:auto;width:100%;justify-content:center;font-weight:560;background:var(--lw-surface);
+  white-space:normal;line-height:1.35;padding:7px 8px;text-align:center;
+}
+.lw-btn.tile:hover:not(:disabled){background:var(--lw-accent-wash)}
+.lw-select{
+  border:1px solid var(--lw-line);background:var(--lw-surface);color:var(--lw-ink2);border-radius:8px;
+  padding:5px 9px;font:inherit;font-size:12px;cursor:pointer;max-width:190px;transition:border-color .15s;
+}
+.lw-select:hover{border-color:var(--lw-accent-line)}
+.lw-select:focus-visible{outline:2px solid var(--lw-accent);outline-offset:2px}
+
+/* 主体两列 */
+.lw-grid{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr);gap:12px;align-items:stretch}
+.lw-col{display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0}
+.lw-col.fill > .lw-queue{flex:1 1 0;height:auto;min-height:200px}
+
+/* 状态：数字先行，格子之间用细线分隔，不靠边框堆盒子 */
+.lw-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px 0;padding:13px 8px 6px}
+.lw-stat{padding:4px 10px;min-width:0}
+.lw-stat+.lw-stat{border-left:1px solid var(--lw-line2)}
+/* 每行第一个格子不要竖线：4 列时是 5/9 号，3 列时是 4/7 号，2 列时是 3/5 号。 */
+.lw-stat:nth-child(4n+1){border-left:0}
+.lw-stat .k{font-size:10.5px;color:var(--lw-dim);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lw-stat .v{font-size:18px;font-weight:700;line-height:1.3;letter-spacing:-.3px;font-variant-numeric:tabular-nums;margin-top:2px}
+.lw-stat .v small{font-size:10px;font-weight:400;color:var(--lw-dim);margin-left:2px;letter-spacing:0}
+.lw-stat.warn .v{color:var(--lw-warn)}
+.lw-stat.warn .k{color:var(--lw-warn);opacity:.92}
+.lw-stat.ok .v{color:var(--lw-ok)}
+.lw-bar{margin-top:6px;height:4px;border-radius:3px;background:var(--lw-ok-wash);overflow:hidden}
+.lw-bar i{display:block;height:100%;border-radius:3px;background:var(--lw-ok);opacity:.85;transition:width .3s}
+.lw-statsub{display:flex;gap:10px;flex-wrap:wrap;padding:9px 15px 13px;font-size:10.5px;color:var(--lw-dim);border-top:1px solid var(--lw-line2);margin-top:8px}
+.lw-statsub .sep{width:1px;height:9px;background:var(--lw-line);align-self:center}
+
+/* 收料：tab */
+.lw-tabs{display:flex;gap:2px;padding:0 11px;border-bottom:1px solid var(--lw-line2)}
+.lw-tab{
+  appearance:none;border:0;background:transparent;font:inherit;font-size:11.5px;color:var(--lw-dim);
+  padding:10px 10px;min-height:34px;cursor:pointer;position:relative;transition:color .15s;
+}
+.lw-tab:hover{color:var(--lw-ink2)}
+.lw-tab:focus-visible{outline:2px solid var(--lw-accent);outline-offset:-2px;border-radius:6px}
+.lw-tab.on{color:var(--lw-ink);font-weight:650}
+.lw-tab.on::after{content:"";position:absolute;left:7px;right:7px;bottom:-1px;height:2px;background:var(--lw-accent);border-radius:2px}
+.lw-pane{padding:12px 15px 14px;display:flex;flex-direction:column;gap:9px}
+.lw-note{
+  width:100%;border:1px solid var(--lw-line);border-radius:9px;background:var(--lw-surface);color:var(--lw-ink);
+  font:inherit;font-size:12px;padding:9px 10px;resize:vertical;min-height:74px;line-height:1.6;transition:border-color .15s,box-shadow .15s;
+}
+.lw-note::placeholder{color:var(--lw-dim)}
+.lw-note:focus{outline:none;border-color:var(--lw-accent-line);box-shadow:0 0 0 3px rgba(106,91,240,.10)}
+.lw-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+/* 单行输入复用 textarea 的观感，但不允许换行撑高 */
+/* 单行输入：在 .lw-row（横向）里按比例伸缩，在 .lw-pane（纵向）里占满一行且不撑高。
+   早先只写了 flex:1 1 200px，放进纵向容器就变成了"高度 200px"，输入框会胀成一块砖。 */
+.lw-name{min-height:0;height:32px;padding:5px 9px;width:100%;flex:0 0 auto;font-size:12px}
+.lw-row>.lw-name{flex:1 1 200px;width:auto;min-width:140px}
+.lw-check{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--lw-ink2);white-space:nowrap;cursor:pointer;user-select:none}
+.lw-check input{accent-color:var(--lw-accent);width:13px;height:13px;margin:0;cursor:pointer}
+/* 新建任务表单：整块给一层浅底，和下面的任务行区分开 */
+.lw-form{background:var(--dsw-alias-bg-secondary,#faf9ff);border-bottom:1px solid var(--lw-line2)}
+/* 星期胶囊：选中的那一颗要一眼看出来，未选保持中性 */
+.lw-dow{appearance:none;border:1px solid var(--lw-line);background:var(--lw-surface);color:var(--lw-dim);font:inherit;font-size:11.5px;width:26px;height:26px;border-radius:7px;cursor:pointer;transition:background .14s,border-color .14s,color .14s}
+.lw-dow:hover{border-color:var(--lw-accent-line);color:var(--lw-ink2)}
+.lw-dow.on{background:var(--lw-accent);border-color:var(--lw-accent);color:#fff;font-weight:650}
+.lw-dow:focus-visible{outline:2px solid var(--lw-accent);outline-offset:2px}
+.lw-btn.quiet{background:transparent;border-color:transparent;color:var(--lw-dim);padding:4px 2px;min-height:24px}
+.lw-btn.quiet:hover:not(:disabled){background:transparent;border-color:transparent;color:var(--lw-accent);text-decoration:underline}
+.lw-hint{font-size:10.5px;color:var(--lw-dim);line-height:1.5}
+.lw-drop{
+  border:1.5px dashed var(--lw-accent-line);border-radius:11px;background:var(--lw-accent-wash);
+  padding:18px 13px;text-align:center;cursor:pointer;transition:background .15s,border-color .15s;
+}
+.lw-drop:hover,.lw-drop.over{background:color-mix(in srgb, var(--lw-accent) 12%, transparent);border-color:var(--lw-accent)}
+.lw-drop .t{font-size:12.5px;font-weight:620}
+.lw-drop .d{font-size:10.5px;color:var(--lw-dim);margin-top:4px;line-height:1.55}
+
+/* 整理 */
+.lw-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:13px 15px}
+.lw-tfoot{padding:9px 15px;border-top:1px solid var(--lw-line2);font-size:10.5px;color:var(--lw-dim);line-height:1.55}
+
+/* 队列：固定高度，装不下在框内滚，头尾钉住 */
+.lw-queue{display:flex;flex-direction:column;height:286px;min-height:0}
+.lw-queue .lw-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.lw-queue .lw-scroll::-webkit-scrollbar{width:8px}
+.lw-queue .lw-scroll::-webkit-scrollbar-thumb{background:var(--lw-line);border-radius:4px}
+.lw-queue .lw-scroll::-webkit-scrollbar-thumb:hover{background:var(--lw-dim)}
+.lw-queue .lw-scroll::-webkit-scrollbar-track{background:transparent}
+.lw-queue .lw-void{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:18px;text-align:center}
+.lw-void .t{font-size:12px;color:var(--lw-ink2);font-weight:620}
+.lw-void .d{font-size:11px;color:var(--lw-dim);line-height:1.6;max-width:32ch}
+.lw-q{display:flex;gap:10px;align-items:center;padding:10px 15px;font-size:12px;transition:background .15s}
+.lw-q+.lw-q{border-top:1px solid var(--lw-line2)}
+.lw-q:hover{background:var(--lw-accent-wash)}
+.lw-q .body{flex:1;min-width:0}
+.lw-q .n{display:block;font-weight:620;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lw-q .m{display:block;font-size:10.5px;color:var(--lw-dim);margin-top:1px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lw-q .acts{display:flex;gap:6px;flex:0 0 auto;align-items:center}
+.lw-qfoot{display:flex;align-items:center;gap:8px;padding:8px 15px;border-top:1px solid var(--lw-line2);font-size:10.5px;color:var(--lw-dim)}
+
+/* 任务行：开着的任务整行带底纹 + 左侧主题色标记；停用后标记与底纹一起消失，
+   只剩灰掉的字。这样"哪些在跑"是扫一眼就知道的，而不用读按钮文案。 */
+.lw-task{
+  position:relative;display:grid;grid-template-columns:minmax(0,1fr) 92px auto;gap:10px;align-items:center;
+  padding:9px 15px 9px 17px;font-size:12px;transition:background .15s;
+}
+.lw-task+.lw-task{border-top:1px solid var(--lw-line2)}
+.lw-task::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:0 2px 2px 0;background:transparent;transition:background .15s}
+.lw-task.on{background:color-mix(in srgb, var(--lw-accent) 9%, transparent)}
+.lw-task.on::before{background:var(--lw-accent)}
+.lw-task:hover{background:color-mix(in srgb, var(--lw-accent) 12%, transparent)}
+.lw-task .n{display:block;font-weight:620;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lw-task .m{display:block;font-size:10.5px;color:var(--lw-dim);margin-top:1px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lw-task.off{background:transparent}
+.lw-task.off::before{background:var(--lw-line2)}
+.lw-task.off .n{color:var(--lw-dim);font-weight:500}
+.lw-task.off .m{opacity:.85}
+.lw-task .when{font-size:10px;color:var(--lw-dim);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.lw-task .acts{display:flex;gap:6px;justify-content:flex-end}
+
+/* 提示 */
+.lw-banner{font-size:11.5px;padding:7px 11px;border-radius:8px;background:var(--lw-accent-wash);color:var(--lw-ink2);border:1px solid var(--lw-line2)}
+.lw-err{font-size:11.5px;padding:7px 11px;border-radius:8px;background:var(--lw-danger-wash);color:var(--lw-danger);white-space:pre-wrap;line-height:1.5;border:1px solid var(--lw-danger-line)}
+.lw-okb{font-size:11.5px;padding:7px 11px;border-radius:8px;background:var(--lw-ok-wash);color:var(--lw-ok);border:1px solid var(--lw-ok-line)}
+.lw-instr{font-size:11px;color:var(--lw-dim);white-space:pre-wrap;max-height:150px;overflow-y:auto;line-height:1.6;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+/* 未初始化：只给一件事做 */
+.lw-boot{display:flex;flex-direction:column;gap:10px;padding:20px 18px;border:1px solid var(--lw-line);border-radius:14px;background:var(--lw-surface);box-shadow:var(--lw-shadow)}
+.lw-boot h1{margin:0;font-size:15px;font-weight:700}
+.lw-boot p{margin:0;font-size:12px;color:var(--lw-dim);line-height:1.6}
+.lw-boot .path{font-size:10.5px;color:var(--lw-dim);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
+
+@media (max-width:880px){
+  .lw-grid{grid-template-columns:1fr}
+  .lw-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .lw-stat:nth-child(4n+1){border-left:1px solid var(--lw-line2)}
+  .lw-stat:nth-child(3n+1){border-left:0}
+}
+@media (max-width:600px){
+  .lw{padding:12px 12px 20px}
+  .lw-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lw-stat:nth-child(3n+1){border-left:1px solid var(--lw-line2)}
+  .lw-stat:nth-child(2n+1){border-left:0}
+  .lw-tools{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lw-task{grid-template-columns:minmax(0,1fr) auto}
+  .lw-task .when{display:none}
+  .lw-top .acts{width:100%}
+  .lw-top .acts .lw-btn,.lw-top .acts .lw-select{flex:1}
+}
+@media (prefers-reduced-motion:reduce){
+  .lw-bar i,.lw-drop,.lw-btn,.lw-task,.lw-q{transition:none}
+}
+
+</style>
+</head>
+<body>
+<div class="preview-toolbar">
+  <h1>知识库面板 · 主题预览</h1>
+  <span>静态快照；为了看状态色，任务前四条按「启用」渲染，队列补了几行示例</span>
+  <span class="spacer"></span>
+  <button onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'">切换深浅色</button>
+</div>
+
+<div class="preview-wrap">
+<div class="lw">
+
+  <div class="lw-top">
+    <div class="who">
+      <h1>llm-wiki</h1>
+      <div class="sub">有 1 条素材可以编译成页了</div>
+      <div class="where lw-mono">空间 /Users/lion/workspace/obsidian-workspace · /Users/lion/workspace/obsidian-workspace/llm-wiki</div>
+    </div>
+    <div class="acts">
+      <select class="lw-select"><option>llm-wiki</option><option>mybrain（未初始化）</option></select>
+      <button class="lw-btn">新建知识库</button>
+      <button class="lw-btn primary">打开知识库</button>
+    </div>
+  </div>
+
+  <div class="lw-card">
+    <div class="lw-chead">
+      <h2>新建知识库</h2>
+      <span class="why">在空间 /Users/lion/workspace/obsidian-workspace 下建一个文件夹，按四个阶段把骨架写齐</span>
+    </div>
+    <div class="lw-pane">
+      <div class="lw-row">
+        <input class="lw-note lw-name" placeholder="文件夹名，例如 health" value="health">
+        <label class="lw-check"><input type="checkbox" checked>建好后在 Obsidian 打开</label>
+        <button class="lw-btn">取消</button>
+        <button class="lw-btn primary">创建</button>
+      </div>
+      <div class="lw-hint">不用开 Finder、也不用先开 Obsidian：目录和 WIKI.md / index / log 都是宿主写的，建完自动切到新库。文件夹里已有内容不会被覆盖，已存在的库会被拒绝重建。</div>
+    </div>
+  </div>
+
+  <div class="lw-grid">
+    <div class="lw-col">
+
+      <div class="lw-card">
+        <div class="lw-chead"><h2>库况</h2><span class="why">只读，3 秒刷新</span></div>
+        <div class="lw-stats"><div class="lw-stat"><div class="k">页</div><div class="v">2</div></div><div class="lw-stat warn"><div class="k">待编译</div><div class="v">1</div></div><div class="lw-stat"><div class="k">待确认</div><div class="v">0</div></div><div class="lw-stat"><div class="k">待审</div><div class="v">0</div></div><div class="lw-stat"><div class="k">占位页</div><div class="v">0</div></div><div class="lw-stat"><div class="k">过期</div><div class="v">0</div></div><div class="lw-stat"><div class="k">孤儿页</div><div class="v">0</div></div><div class="lw-stat ok"><div class="k">健康度</div><div class="v">100<small>%</small></div><div class="lw-bar"><i style="width:100%"></i></div></div></div>
+        <div class="lw-statsub">
+          <span>占用 5.6 KB</span><span class="sep"></span>
+          <span>附件 0 B</span><span class="sep"></span>
+          <span>中间物 0 B</span><span class="sep"></span>
+          <span>git 关</span><span class="sep"></span>
+          <span>音频 不转写</span>
+        </div>
+      </div>
+
+      <div class="lw-card">
+        <div class="lw-chead"><h2>收料</h2><span class="why">进来的只是素材，入库前都要你点一次</span></div>
+        <div class="lw-tabs" role="tablist">
+          <button role="tab" aria-selected="false" class="lw-tab">灵感</button>
+          <button role="tab" aria-selected="true" class="lw-tab on">文件</button>
+        </div>
+        <div class="lw-pane">
+          <div class="lw-drop">
+            <div class="t">把文件或整个文件夹拖到这里</div>
+            <div class="d">文件夹会保留原有的目录结构（落在 0-inbox/files/原文件夹/…）。<br>PDF 会抽正文，录音按设置切片转写，其余原样存档。</div>
+          </div>
+          <div class="lw-row">
+            <span class="lw-hint">落在 0-inbox/files，同名不覆盖（第二个起落成 -2）</span>
+            <span class="lw-spacer"></span>
+            <button class="lw-btn">选择文件</button>
+            <button class="lw-btn">上传文件夹</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="lw-card">
+        <div class="lw-chead"><h2>整理</h2><span class="why">一个按钮干完一件事；名字就是它干的事</span></div>
+        <div class="lw-tools">
+          <button class="lw-btn tile">Wiki 编译 · 1</button>
+          <button class="lw-btn tile">重建 Wiki 索引</button>
+          <button class="lw-btn tile">Wiki 体检</button>
+          <button class="lw-btn tile">清理临时文件</button>
+          <button class="lw-btn tile">清理未用附件</button>
+          <button class="lw-btn tile" disabled>版本回滚</button>
+        </div>
+        <div class="lw-tfoot">Wiki 编译 = 素材成页 + 去重 + 矛盾比对 + 补孤页 + 更新索引；有争议只出提案，不改现有页。</div>
+      </div>
+
+    </div>
+
+    <div class="lw-col fill">
+
+      <div class="lw-card lw-queue">
+        <div class="lw-chead"><h2>确认队列</h2><div class="lw-spacer"></div><span class="lw-badge">2<span>条待确认</span></span></div>
+        <div class="lw-scroll">
+          <div class="lw-q">
+            <div class="body"><span class="n">胰岛素抵抗与运动时机</span><span class="m">灵感 · 0-inbox/notes</span></div>
+            <div class="acts"><button class="lw-btn mini go">入库</button><button class="lw-btn mini">撤回</button></div>
+          </div>
+          <div class="lw-q">
+            <div class="body"><span class="n">访谈录音 2026-11-18.m4a</span><span class="m">音频 · 0-inbox/files</span></div>
+            <div class="acts"><button class="lw-btn mini go">入库</button><button class="lw-btn mini">撤回</button></div>
+          </div>
+          <div class="lw-q">
+            <div class="body"><span class="n">CGM-2026-指南.pdf</span><span class="m">PDF · 227 页已抽文 33.8 万字</span></div>
+            <div class="acts"><button class="lw-btn mini go">入库</button><button class="lw-btn mini">撤回</button></div>
+          </div>
+          <div class="lw-q">
+            <div class="body"><span class="n">读书笔记 2026-11-20</span><span class="m">灵感 · 0-inbox/notes</span></div>
+            <div class="acts"><button class="lw-btn mini go">入库</button><button class="lw-btn mini">撤回</button></div>
+          </div>
+        </div>
+        <div class="lw-qfoot"><span>确认后才进 1-raw</span><span class="lw-spacer"></span><button class="lw-btn mini">全部入库</button></div>
+      </div>
+
+      <div class="lw-card lw-queue">
+        <div class="lw-chead"><h2>提案队列</h2><div class="lw-spacer"></div><span class="lw-badge">1<span>条待审批</span></span></div>
+        <div class="lw-scroll">
+          <div class="lw-q">
+            <div class="body"><span class="n">合并：CGM 与 连续血糖监测</span><span class="m">改写 · 重复 · 两页入链 5 / 3</span></div>
+            <div class="acts"><button class="lw-btn mini go">合并</button><button class="lw-btn mini">丢弃</button></div>
+          </div>
+          <div class="lw-q">
+            <div class="body"><span class="n">冲突：低碳水阈值 20g 还是 50g</span><span class="m">废止 · 矛盾 · 涉及 2 页</span></div>
+            <div class="acts"><button class="lw-btn mini go">合并</button><button class="lw-btn mini">丢弃</button></div>
+          </div>
+        </div>
+        <div class="lw-qfoot"><span>页面怎么写由你裁决</span><span class="lw-spacer"></span><button class="lw-btn mini">全部合并</button></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="lw-card">
+    <div class="lw-chead">
+      <h2>自动化任务</h2>
+      <span class="why">开 = 在 DSH 建一条任务；停 = 真删</span>
+      <div class="lw-spacer"></div>
+      <button class="lw-btn mini">新建任务</button>
+    </div>
+    <div class="lw-pane lw-form">
+      <div class="lw-row">
+        <input class="lw-note lw-name" placeholder="任务名，例如「每周整理一次」" value="每周整理一次">
+        <select class="lw-select"><option>每天</option><option>每周</option><option>每隔 N 天</option><option selected>每月</option></select>
+        <input class="lw-select" type="time" value="07:30">
+      </div>
+      <div class="lw-row">
+        <span class="lw-hint">每月</span>
+        <select class="lw-select"><option>... 13 日</option><option selected>15 日</option><option>16 日</option><option>最后一天</option></select>
+        <span class="lw-hint">该月没有这一天就跳过，不提前也不顺延</span>
+      </div>
+      <input class="lw-note lw-name" placeholder="交给 agent 的指令（留空就用任务名）">
+      <div class="lw-row">
+        <span class="lw-hint">每月 15 日 07:30</span>
+        <span class="lw-spacer"></span>
+        <button class="lw-btn">取消</button>
+        <button class="lw-btn primary">创建</button>
+      </div>
+      <div class="lw-row"><button class="lw-btn quiet">说不清时间？用一句话交给 AI</button></div>
+    </div>
+    <div class="lw-task on">
+      <div><span class="n">索引重建</span><span class="m">页面变了索引没变，检索就会指向旧摘要。</span></div>
+      <span class="when">事件</span>
+      <div class="acts"><button class="lw-btn mini">停用</button><button class="lw-btn mini danger">删除</button></div>
+    </div><div class="lw-task on">
+      <div><span class="n">单页体检</span><span class="m">新页写坏 schema 时，就地报错比周报更早。</span></div>
+      <span class="when">事件</span>
+      <div class="acts"><button class="lw-btn mini">停用</button><button class="lw-btn mini danger">删除</button></div>
+    </div><div class="lw-task on">
+      <div><span class="n">全量体检</span><span class="m">断链、孤儿、缺出处会慢慢堆积，每周清一次。</span></div>
+      <span class="when">09:00 每天</span>
+      <div class="acts"><button class="lw-btn mini">停用</button><button class="lw-btn mini danger">删除</button></div>
+    </div><div class="lw-task on">
+      <div><span class="n">提案过期</span><span class="m">没人裁决的提案会一直挂在面板上，掩盖新提案。</span></div>
+      <span class="when">09:10 每天</span>
+      <div class="acts"><button class="lw-btn mini">停用</button><button class="lw-btn mini danger">删除</button></div>
+    </div><div class="lw-task off">
+      <div><span class="n">重复扫描</span><span class="m">同一个概念写两页，检索会各给一半答案。</span></div>
+      <span class="when">09:20 每天</span>
+      <div class="acts"><button class="lw-btn mini run">启用</button><button class="lw-btn mini danger">删除</button></div>
+    </div><div class="lw-task off">
+      <div><span class="n">矛盾扫描</span><span class="m">两页给出不同数字时，谁也不会主动发现。</span></div>
+      <span class="when">09:30 每天</span>
+      <div class="acts"><button class="lw-btn mini run">启用</button><button class="lw-btn mini danger">删除</button></div>
+    </div><div class="lw-task off">
+      <div><span class="n">过期页提醒</span><span class="m">active 但半年没更新的页，往往已经不可信。</span></div>
+      <span class="when">09:40 每天</span>
+      <div class="acts"><button class="lw-btn mini run">启用</button><button class="lw-btn mini danger">删除</button></div>
+    </div><div class="lw-task off">
+      <div><span class="n">主题采集</span><span class="m">知识库要长，得有人持续往里送料。</span></div>
+      <span class="when">08:30 每天</span>
+      <div class="acts"><button class="lw-btn mini run">启用</button><button class="lw-btn mini danger">删除</button></div>
+    </div><div class="lw-task off">
+      <div><span class="n">缺口补页</span><span class="m">检索连续打空，说明库里缺这一块。</span></div>
+      <span class="when">事件</span>
+      <div class="acts"><button class="lw-btn mini run">启用</button><button class="lw-btn mini danger">删除</button></div>
+    </div><div class="lw-task off">
+      <div><span class="n">垃圾清理</span><span class="m">临时文件、切片、过期备份会一直占地方。</span></div>
+      <span class="when">09:50 每天</span>
+      <div class="acts"><button class="lw-btn mini run">启用</button><button class="lw-btn mini danger">删除</button></div>
+    </div>
+    <div class="lw-qfoot"><span>内置任务由插件对账维护</span></div>
+  </div>
+
+</div>
+</div>
+</body>
+</html>

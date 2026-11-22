@@ -1,0 +1,29 @@
+# 本插件作为 DSH 组合包装入时，由这一条把宿主半和前端半一起挂上。
+#
+# 装法（二选一）：
+#   dsh plugin --profile <profile> add link:/path/to/dsh-plugin-llm-wiki
+#   或手工把下面 - insert 段复制到 profile 自己的 cordis.patch.yml 里
+#
+# 注意：下面的路径是**默认值示例**。真正装进某个 profile 时，请把 spacePath /
+# libraryPath 改成你自己的 Obsidian 工作目录；否则插件会指向一个不存在的路径。
+- insert:
+    - id: llm-wiki
+      name: dsh-plugin-llm-wiki
+      disabled: false
+      config:
+        # 知识空间 = 你的 Obsidian 工作目录（一个 workspace 只开一个 vault 的话就是它）。
+        # 填了它，库就是「空间下的某个文件夹」，面板里可以切库；留空则退化成单库模式。
+        spacePath: /Users/you/obsidian-workspace
+        # 单库模式下直接用这个目录；有空间时它是 fallback（空间里还没记 active 时用最后一个目录名）。
+        libraryPath: /Users/you/obsidian-workspace/llm-wiki
+        # 只有不配 spacePath 时才按名字在 spacePath 下推路径；配了空间就以 active 为准。
+        libraryName: llm-wiki
+        writeMode: propose
+        maxCandidates: 8
+        gitEnabled: false
+        gitAutoCommit: true
+        audioProvider: none
+        audioMaxMinutes: 30
+        audioChunkMinutes: 10
+        debounceMs: 1500
+        watchLibrary: true

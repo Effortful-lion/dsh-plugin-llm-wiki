@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>知识库 · 面板 v5 与设置页</title>
+<style>
+  /* v5：Dashboard 只留「库况 + 建议队列」两件事，其余全部搬进 DSH 设置 → 插件 → LLM Wiki。
+     顶部两个 chip 在两张画面之间切换：面板 / 设置页。 */
+  :root{
+    --bg:#f4f2fb; --card:rgba(255,255,255,.88); --tile:#faf9ff;
+    --line:rgba(122,106,196,.15); --line-soft:rgba(122,106,196,.09);
+    --ink:#1b1a2a; --ink-2:#403d58; --muted:#6f6c87; --muted-2:#9a97ae;
+    --accent:#6a5bf0; --ok:#2f9e6b;
+    --radius:14px; --shadow:0 1px 2px rgba(36,24,88,.04), 0 10px 28px -22px rgba(36,24,88,.34);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(880px 500px at 10% -12%, rgba(150,132,255,.18), transparent 60%),
+      radial-gradient(720px 460px at 94% 2%, rgba(120,190,255,.14), transparent 58%),
+      linear-gradient(180deg,#f7f5fd 0%,var(--bg) 46%,#f0eef9 100%);
+    background-attachment:fixed; color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC",sans-serif;
+    font-size:13px; line-height:1.5; -webkit-font-smoothing:antialiased; padding:26px 32px 44px;
+  }
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+  .eyebrow{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;letter-spacing:.17em;text-transform:uppercase;color:var(--accent);font-weight:600}
+
+  .switcher{max-width:940px;margin:0 auto 16px;display:flex;gap:4px;justify-content:center}
+  .sw{appearance:none;border:1px solid transparent;background:transparent;font:inherit;font-size:11px;color:var(--muted);padding:5px 11px;border-radius:999px;cursor:pointer}
+  .sw:hover{color:var(--ink-2)}
+  .sw.on{background:#fff;border-color:var(--line);color:var(--ink);font-weight:600;box-shadow:0 2px 8px -6px rgba(36,24,88,.4)}
+
+  .view{max-width:940px;margin:0 auto;display:none}
+  .view.show{display:block}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(16px) saturate(1.03);-webkit-backdrop-filter:blur(16px) saturate(1.03);overflow:hidden}
+  .stack{display:flex;flex-direction:column;gap:14px}
+
+  .btn{appearance:none;border:1px solid var(--line);background:#fff;color:var(--ink-2);font:inherit;font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;transition:background .15s,border-color .15s,color .15s,transform .12s;white-space:nowrap}
+  .btn:hover{border-color:rgba(122,106,196,.30);color:var(--ink)}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .btn.primary:hover{background:#5b4ce6}
+  .btn.big{font-size:12.5px;padding:8px 16px;border-radius:9px;box-shadow:0 8px 20px -14px rgba(106,91,240,.8)}
+  .btn.quiet{background:transparent;border-color:transparent;color:var(--muted);padding:6px 8px}
+  .btn.quiet:hover{background:rgba(106,91,240,.06);color:var(--ink-2)}
+
+  /* ── 面板 · 库况 ── */
+  .head{padding:20px 22px 16px;display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+  .head .who{flex:1;min-width:240px}
+  .title-line{display:flex;align-items:baseline;gap:9px;margin-top:5px}
+  .title-line .name{font-size:20px;font-weight:700;letter-spacing:.2px}
+  .title-line .dir{font-size:11px;color:var(--muted-2)}
+  .path{margin-top:5px;font-size:10.5px;color:var(--muted-2)}
+  .acts{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+  .nums{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 14px;padding:0 22px 14px}
+  .n{display:flex;align-items:baseline;gap:5px}
+  .n .k{font-size:11px;color:var(--muted)}
+  .n .v{font-size:15px;font-weight:680}
+  .n.warn .v{color:#9a6b12}
+  .n.health .v{color:var(--ok)}
+  .n.health .bar{width:52px;height:3px;border-radius:2px;background:rgba(47,158,107,.15);overflow:hidden;transform:translateY(-2px)}
+  .n.health .bar i{display:block;height:100%;width:78%;background:var(--ok);opacity:.75}
+  .subline{padding:0 22px 15px;font-size:10.5px;color:var(--muted-2);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .subline .sep{width:1px;height:10px;background:var(--line)}
+
+  /* ── 面板 · 建议队列 ── */
+  .qhead{padding:13px 22px;display:flex;align-items:baseline;gap:9px;border-bottom:1px solid var(--line-soft)}
+  .qhead h2{margin:0;font-size:13.5px;font-weight:650}
+  .qhead .why{font-size:11.5px;color:var(--muted)}
+  .qhead .spacer{flex:1}
+  .next{padding:16px 22px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .next .line{flex:1;min-width:220px;font-size:13px;color:var(--ink-2)}
+  .next .line b{font-weight:680;color:var(--ink)}
+  .next .line .why{display:block;font-size:10.5px;color:var(--muted-2);margin-top:2px}
+  .stages{padding:0 22px;display:flex;gap:2px;flex-wrap:wrap;border-top:1px solid var(--line-soft)}
+  .stage{appearance:none;border:0;background:transparent;font:inherit;font-size:11.5px;color:var(--muted);padding:9px 10px;cursor:pointer;position:relative;white-space:nowrap;display:inline-flex;align-items:baseline;gap:5px}
+  .stage:hover{color:var(--ink-2)}
+  .stage.active{color:var(--ink);font-weight:650}
+  .stage.active::after{content:"";position:absolute;left:9px;right:9px;bottom:0;height:2px;background:var(--accent);border-radius:1px}
+  .stage .n{font-size:9.5px;color:var(--muted-2);font-family:ui-monospace,"SF Mono",Menlo,monospace}
+  .ops{padding:10px 22px 16px;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .ops .hint{font-size:10.5px;color:var(--muted-2)}
+  .qfoot{padding:9px 22px;border-top:1px solid var(--line-soft);font-size:10.5px;color:var(--muted-2);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .qfoot .grey{color:var(--muted);background:rgba(122,106,196,.05);border:1px solid var(--line-soft);border-radius:6px;padding:2px 7px}
+
+  .strip{max-width:940px;margin:12px auto 0;display:flex;align-items:center;gap:10px;font-size:11px;color:var(--muted);padding:0 4px;flex-wrap:wrap}
+  .strip .spacer{flex:1}
+  .strip a{color:var(--accent);text-decoration:none;cursor:pointer}
+  .strip a:hover{text-decoration:underline}
+
+  /* ── 设置页（DSH 设置外壳） ── */
+  .settings{display:grid;grid-template-columns:186px minmax(0,1fr);gap:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .snav{padding:16px 12px;border-right:1px solid var(--line-soft);background:rgba(250,249,255,.5)}
+  .snav .grp{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2);font-family:ui-monospace,"SF Mono",Menlo,monospace;padding:0 8px 7px}
+  .snav .item{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:8px;font-size:12px;color:var(--ink-2);cursor:pointer}
+  .snav .item:hover{background:rgba(106,91,240,.05)}
+  .snav .item.on{background:rgba(106,91,240,.10);color:var(--ink);font-weight:650}
+  .snav .item .badge{font-size:9px;color:var(--muted-2);margin-left:auto;font-family:ui-monospace,"SF Mono",Menlo,monospace}
+  .snav .item + .grp{margin-top:14px}
+  .sbody{padding:0}
+  .stitle{padding:16px 20px 12px;border-bottom:1px solid var(--line-soft)}
+  .stitle h2{margin:0;font-size:15px;font-weight:680}
+  .stitle .d{font-size:11px;color:var(--muted-2);margin-top:2px}
+  .sec{padding:14px 20px;border-bottom:1px solid var(--line-soft)}
+  .sec .sh{display:flex;align-items:baseline;gap:8px;margin-bottom:8px}
+  .sec .sh h3{margin:0;font-size:12px;font-weight:650}
+  .sec .sh .d{font-size:10.5px;color:var(--muted-2)}
+  .row{display:grid;grid-template-columns:172px minmax(0,1fr);gap:14px;align-items:center;padding:7px 0;font-size:12px}
+  .row + .row{border-top:1px dashed var(--line-soft)}
+  .row .lb{color:var(--ink-2)}
+  .row .lb small{display:block;font-size:10px;color:var(--muted-2);margin-top:1px}
+  .row .ct{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-self:start}
+  .inp{border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 9px;font:inherit;font-size:11.5px;color:var(--ink);min-width:120px}
+  .inp.wide{min-width:280px;flex:1}
+  .inp.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px}
+  select.inp{cursor:pointer}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+  .seg button{appearance:none;border:0;background:transparent;font:inherit;font-size:11px;padding:5px 10px;color:var(--muted);cursor:pointer}
+  .seg button.on{background:rgba(106,91,240,.12);color:var(--ink);font-weight:640}
+  .switch{width:30px;height:17px;border-radius:999px;background:rgba(122,106,196,.12);border:1px solid var(--line-soft);position:relative;cursor:pointer;flex:0 0 auto;transition:background .18s,border-color .18s}
+  .switch i{position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(30,20,70,.18);transition:left .18s}
+  .switch.on{background:rgba(47,158,107,.55);border-color:rgba(47,158,107,.55)}
+  .switch.on i{left:16px}
+  .tag{font-size:10px;color:var(--muted-2)}
+  .sfoot{padding:12px 20px;font-size:10.5px;color:var(--muted-2);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .sfoot .spacer{flex:1}
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);background:rgba(27,26,42,.92);color:#fff;font-size:11.5px;padding:8px 14px;border-radius:9px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:9}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  @media (max-width:720px){
+    body{padding:14px 12px 28px}
+    .head,.nums,.subline,.next,.stages,.ops,.qfoot{padding-left:16px;padding-right:16px}
+    .head .acts{width:100%}
+    .head .acts .btn{flex:1}
+    .next .btn{width:100%}
+    .settings{grid-template-columns:1fr}
+    .snav{border-right:0;border-bottom:1px solid var(--line-soft)}
+    .row{grid-template-columns:1fr;gap:6px}
+    .inp.wide{min-width:0;width:100%}
+  }
+</style>
+</head>
+<body>
+
+<div class="switcher">
+  <button class="sw on" data-view="panel">面板</button>
+  <button class="sw" data-view="settings">设置页 · DSH 设置 → 插件 → LLM Wiki</button>
+</div>
+
+<!-- ═════ 画面 A：面板 ═════ -->
+<div class="view show" data-name="panel">
+  <div class="stack">
+
+    <div class="card">
+      <div class="head">
+        <div class="who">
+          <div class="eyebrow">LLM Wiki · 知识库</div>
+          <div class="title-line">
+            <span class="name">brain</span>
+            <span class="dir">纯 Markdown 库 · 不建数据库</span>
+          </div>
+          <div class="path mono">/Users/lion/workspace/obsidian-workspace/llm-wiki</div>
+        </div>
+        <div class="acts">
+          <button class="btn quiet" data-open-settings>设置</button>
+          <button class="btn primary big">在 Obsidian 打开知识库</button>
+        </div>
+      </div>
+
+      <div class="nums">
+        <span class="n"><span class="k">页</span><span class="v">42</span></span>
+        <span class="n"><span class="k">待补页</span><span class="v">7</span></span>
+        <span class="n warn"><span class="k">待编译</span><span class="v">12</span></span>
+        <span class="n"><span class="k">待审</span><span class="v">3</span></span>
+        <span class="n"><span class="k">过期</span><span class="v">9</span></span>
+        <span class="n"><span class="k">断裂</span><span class="v">2</span></span>
+        <span class="n health"><span class="k">健康</span><span class="v">78%</span><span class="bar"><i></i></span></span>
+      </div>
+
+      <div class="subline">
+        <span>占用 38 MB（附件 31 / 中间物 6 / 备份 1）</span>
+        <span class="sep"></span><span>git 关</span>
+        <span class="sep"></span><span>音频 未启用</span>
+        <span class="sep"></span><span>自动任务 7/9 已开</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="qhead">
+        <h2>建议队列</h2>
+        <span class="why">一次只推一件事；其余置灰并写原因</span>
+      </div>
+
+      <div class="next">
+        <div class="line">
+          <b>12 条待编译素材</b> 停在 1-raw，编译后才会进 2-wiki
+          <span class="why">先做这一步，库这才算往前走</span>
+        </div>
+        <button class="btn primary">编译素材</button>
+      </div>
+
+      <div class="stages">
+        <button class="stage" data-stage="0"><span class="n">1</span>收集资料</button>
+        <button class="stage" data-stage="1"><span class="n">2</span>确认入库</button>
+        <button class="stage active" data-stage="2"><span class="n">3</span>编译</button>
+        <button class="stage" data-stage="3"><span class="n">4</span>提案审批</button>
+        <button class="stage" data-stage="4"><span class="n">5</span>维护</button>
+      </div>
+
+      <div class="ops" id="ops"></div>
+
+      <div class="qfoot">
+        <span class="grey">确认入库</span><span>队列空，0-inbox 无待确认</span>
+        <span class="grey">合并提案</span><span>3-review 无提案</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="strip">
+    <span>自动任务、采集频率、音频通道、git 这些都在设置里改，面板不重复一遍。</span>
+    <span class="spacer"></span>
+    <a data-open-settings>打开设置</a>
+  </div>
+</div>
+
+<!-- ═════ 画面 B：设置页 ═════ -->
+<div class="view" data-name="settings">
+  <div class="settings">
+    <div class="snav">
+      <div class="grp">设置</div>
+      <div class="item">通用</div>
+      <div class="item">模型与凭据</div>
+      <div class="grp">插件</div>
+      <div class="item on">LLM Wiki<span class="badge">✓</span></div>
+      <div class="item">多 Agent 编队</div>
+      <div class="item">浏览器工具</div>
+    </div>
+
+    <div class="sbody">
+      <div class="stitle">
+        <h2>LLM Wiki · 知识库</h2>
+        <div class="d">改完即时生效，写回 profile 的插件配置；面板只读这些值</div>
+      </div>
+
+      <div class="sec">
+        <div class="sh"><h3>库</h3><span class="d">四个阶段目录的根，一个库里只有一套</span></div>
+        <div class="row">
+          <div class="lb">库路径<small>0-inbox / 1-raw / 2-wiki / 3-review 都在它下面</small></div>
+          <div class="ct" style="justify-self:stretch;width:100%"><input class="inp wide mono" style="min-width:0;width:100%" value="/Users/lion/workspace/obsidian-workspace/llm-wiki"></div>
+        </div>
+        <div class="row">
+          <div class="lb">库名<small>出现在标题与任务前缀</small></div>
+          <div class="ct"><input class="inp" value="brain"></div>
+        </div>
+        <div class="row">
+          <div class="lb">Obsidian vault 名<small>留空则取库目录名；用于 obsidian:// 深链</small></div>
+          <div class="ct"><input class="inp" value="llm-wiki"></div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sh"><h3>写入</h3><span class="d">决定 AI 能不能直接改 2-wiki</span></div>
+        <div class="row">
+          <div class="lb">写入模式<small>propose：只写提案；direct：直接落页</small></div>
+          <div class="ct">
+            <span class="seg"><button class="on">propose</button><button>direct</button></span>
+          </div>
+        </div>
+        <div class="row">
+          <div class="lb">提案候选上限</div>
+          <div class="ct"><input class="inp" value="8" style="min-width:70px"></div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sh"><h3>自动化</h3><span class="d">9 个内置任务，开关落在 2-wiki/jobs.json，注册进 DSH 任务页</span></div>
+        <div class="row">
+          <div class="lb">索引重建 / 单页体检<small>事件触发，库或页面一变就跑</small></div>
+          <div class="ct"><span class="switch on"><i></i></span><span class="switch on"><i></i></span></div>
+        </div>
+        <div class="row">
+          <div class="lb">提案过期 / 过期页提醒<small>每天 09:10 / 09:40</small></div>
+          <div class="ct"><span class="switch on"><i></i></span><span class="switch on"><i></i></span></div>
+        </div>
+        <div class="row">
+          <div class="lb">重复扫描<small>周一 09:20，只出提案</small></div>
+          <div class="ct"><span class="switch on"><i></i></span></div>
+        </div>
+        <div class="row">
+          <div class="lb">矛盾扫描<small>同一结论前后不一</small></div>
+          <div class="ct"><span class="switch on"><i></i></span>
+            <select class="inp"><option>每周一</option><option>每天</option><option>每月</option><option>关闭</option></select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="lb">主题采集<small>开之前先填主题与采集源</small></div>
+          <div class="ct"><span class="switch"><i></i></span><input class="inp wide" placeholder="主题：胰岛素抵抗、CGM…"></div>
+        </div>
+        <div class="row">
+          <div class="lb">缺口补页 / 垃圾清理<small>补页手动；清理先预览后删，周日 09:50</small></div>
+          <div class="ct"><span class="switch"><i></i></span><span class="switch on"><i></i></span></div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sh"><h3>音频</h3><span class="d">长录音先切片再转写，凭据不入库</span></div>
+        <div class="row">
+          <div class="lb">转写通道<small>none：只存档；local：本机 whisper；api：远端</small></div>
+          <div class="ct">
+            <select class="inp"><option>none</option><option>local</option><option>api</option></select>
+            <span class="tag mono">whisper-cli 未装</span>
+          </div>
+        </div>
+        <div class="row">
+          <div class="lb">单文件上限 / 切片长度</div>
+          <div class="ct"><input class="inp" value="30" style="min-width:64px"><span class="tag">分钟</span>
+            <input class="inp" value="10" style="min-width:64px"><span class="tag">分钟</span></div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sh"><h3>版本</h3><span class="d">开启后每次合并 = 一个可回滚 commit</span></div>
+        <div class="row">
+          <div class="lb">git 回滚<small>要求库本身是 git 仓库</small></div>
+          <div class="ct"><span class="switch"><i></i></span></div>
+        </div>
+        <div class="row">
+          <div class="lb">合并后自动提交</div>
+          <div class="ct"><span class="switch on"><i></i></span></div>
+        </div>
+      </div>
+
+      <div class="sfoot">
+        <span>这些字段就是插件 Config 里的同名项，DSH 设置页会按 schema 生成，不需要另写表单。</span>
+        <span class="spacer"></span>
+        <span class="mono">libraryPath · libraryName · vaultName · writeMode · maxCandidates · gitEnabled · gitAutoCommit · audioProvider · audioMaxMinutes · audioChunkMinutes · watchLibrary</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+  const toast = (m) => {
+    const el = document.getElementById('toast'); el.textContent = m; el.classList.add('show')
+    clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 1500)
+  }
+
+  const OPS = {
+    0: [{t:'灵感落盘'}, {t:'文件接收'}, {t:'预处理'}, {t:'采集执行'}],
+    1: [{t:'确认入库', p:true}, {t:'撤回素材'}, {hint:'核对过才进 1-raw'}],
+    2: [{t:'编译素材'}, {t:'缺口补页'}],
+    3: [{t:'合并提案'}, {t:'过期清理'}, {hint:'机器只提议，人来裁决'}],
+    4: [{t:'重建索引'}, {t:'结构体检'}, {t:'去重扫描'}, {t:'矛盾扫描'}, {t:'回滚'}, {t:'安全清理'}, {t:'深度清理'}]
+  }
+  const ops = document.getElementById('ops')
+  const render = (i) => {
+    ops.innerHTML = ''
+    OPS[i].forEach(o => {
+      if (o.hint) { const s = document.createElement('span'); s.className = 'hint'; s.textContent = o.hint; ops.appendChild(s); return }
+      const b = document.createElement('button')
+      b.className = 'btn' + (o.p ? ' primary' : '')
+      b.textContent = o.t
+      b.addEventListener('click', () => toast(o.t + ' · 设计稿，未接真实动作'))
+      ops.appendChild(b)
+    })
+  }
+  render(2)
+
+  const showView = (name) => {
+    document.querySelectorAll('.view').forEach(v => v.classList.toggle('show', v.dataset.name === name))
+    document.querySelectorAll('.sw').forEach(s => s.classList.toggle('on', s.dataset.view === name))
+  }
+
+  document.querySelectorAll('.sw').forEach(s => s.addEventListener('click', () => showView(s.dataset.view)))
+  document.querySelectorAll('[data-open-settings]').forEach(el => el.addEventListener('click', () => {
+    showView('settings'); toast('跳到 DSH 设置 → 插件 → LLM Wiki')
+  }))
+  document.querySelectorAll('.stage').forEach(s => s.addEventListener('click', () => {
+    document.querySelectorAll('.stage').forEach(x => x.classList.remove('active'))
+    s.classList.add('active'); render(+s.dataset.stage)
+  }))
+  document.querySelectorAll('.btn').forEach(b => {
+    if (b.closest('.sw') || b.hasAttribute('data-open-settings')) return
+    b.addEventListener('click', () => toast(b.textContent.trim() + ' · 设计稿，未接真实动作'))
+  })
+  document.querySelectorAll('.switch').forEach(sw => sw.addEventListener('click', () => {
+    sw.classList.toggle('on'); toast(sw.classList.contains('on') ? '已开启（原型）' : '已关闭（原型）')
+  }))
+  document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+    b.parentElement.querySelectorAll('button').forEach(x => x.classList.remove('on'))
+    b.classList.add('on'); toast('写入模式 → ' + b.textContent)
+  }))
+</script>
+</body>
+</html>

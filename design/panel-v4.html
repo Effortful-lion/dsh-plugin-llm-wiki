@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>知识库 · 面板设计稿 v4</title>
+<style>
+  /* v4：只留三块——库况、建议队列（含分阶段按钮）、自动任务。
+     默认只显示"当前该做的那一步"，其余收在阶段切换与折叠里。 */
+  :root{
+    --bg:#f4f2fb; --card:rgba(255,255,255,.88);
+    --line:rgba(122,106,196,.15); --line-soft:rgba(122,106,196,.09);
+    --ink:#1b1a2a; --ink-2:#403d58; --muted:#6f6c87; --muted-2:#9a97ae;
+    --accent:#6a5bf0; --ok:#2f9e6b;
+    --radius:14px; --shadow:0 1px 2px rgba(36,24,88,.04), 0 10px 28px -22px rgba(36,24,88,.34);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(880px 500px at 10% -12%, rgba(150,132,255,.18), transparent 60%),
+      radial-gradient(720px 460px at 94% 2%, rgba(120,190,255,.14), transparent 58%),
+      linear-gradient(180deg,#f7f5fd 0%,var(--bg) 46%,#f0eef9 100%);
+    background-attachment:fixed; color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC",sans-serif;
+    font-size:13px; line-height:1.5; -webkit-font-smoothing:antialiased; padding:34px 32px 44px;
+  }
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+  .eyebrow{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;letter-spacing:.17em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  .shell{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(16px) saturate(1.03);-webkit-backdrop-filter:blur(16px) saturate(1.03);overflow:hidden}
+
+  .btn{appearance:none;border:1px solid var(--line);background:#fff;color:var(--ink-2);font:inherit;font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;transition:background .15s,border-color .15s,color .15s,transform .12s;white-space:nowrap}
+  .btn:hover{border-color:rgba(122,106,196,.30);color:var(--ink)}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .btn.primary:hover{background:#5b4ce6}
+  .btn.big{font-size:12.5px;padding:8px 16px;border-radius:9px;box-shadow:0 8px 20px -14px rgba(106,91,240,.8)}
+  .btn.quiet{background:transparent;border-color:transparent;color:var(--muted);padding:6px 8px}
+  .btn.quiet:hover{background:rgba(106,91,240,.06);color:var(--ink-2)}
+  .btn[disabled]{opacity:.4;cursor:not-allowed}
+
+  /* ── 1 · 库况 ── */
+  .head{padding:20px 22px 16px;display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+  .head .who{flex:1;min-width:240px}
+  .title-line{display:flex;align-items:baseline;gap:9px;margin-top:5px}
+  .title-line .name{font-size:20px;font-weight:700;letter-spacing:.2px}
+  .title-line .dir{font-size:11px;color:var(--muted-2)}
+  .path{margin-top:5px;font-size:10.5px;color:var(--muted-2)}
+  .acts{display:flex;gap:7px;align-items:center}
+
+  .nums{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 14px;padding:0 22px 14px}
+  .n{display:flex;align-items:baseline;gap:5px}
+  .n .k{font-size:11px;color:var(--muted)}
+  .n .v{font-size:15px;font-weight:680}
+  .n.warn .v{color:#9a6b12}
+  .n.health .v{color:var(--ok)}
+  .n.health .bar{width:52px;height:3px;border-radius:2px;background:rgba(47,158,107,.15);overflow:hidden;transform:translateY(-2px)}
+  .n.health .bar i{display:block;height:100%;width:78%;background:var(--ok);opacity:.75}
+  .subline{padding:0 22px 15px;font-size:10.5px;color:var(--muted-2);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .subline .sep{width:1px;height:10px;background:var(--line)}
+
+  /* ── 2 · 建议队列 ── */
+  .qhead{padding:13px 22px;display:flex;align-items:baseline;gap:9px;border-bottom:1px solid var(--line-soft)}
+  .qhead h2{margin:0;font-size:13.5px;font-weight:650}
+  .qhead .why{font-size:11.5px;color:var(--muted)}
+  .next{padding:16px 22px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .next .line{flex:1;min-width:220px;font-size:13px;color:var(--ink-2)}
+  .next .line b{font-weight:680;color:var(--ink)}
+  .next .line .why{display:block;font-size:10.5px;color:var(--muted-2);margin-top:2px}
+
+  .stages{padding:0 22px 4px;display:flex;gap:2px;flex-wrap:wrap;border-top:1px solid var(--line-soft)}
+  .stage{appearance:none;border:0;background:transparent;font:inherit;font-size:11.5px;color:var(--muted);padding:9px 10px;cursor:pointer;position:relative;white-space:nowrap;display:inline-flex;align-items:baseline;gap:5px}
+  .stage:hover{color:var(--ink-2)}
+  .stage.active{color:var(--ink);font-weight:650}
+  .stage.active::after{content:"";position:absolute;left:9px;right:9px;bottom:0;height:2px;background:var(--accent);border-radius:1px}
+  .stage .n{font-size:9.5px;color:var(--muted-2);margin-right:4px;font-family:ui-monospace,"SF Mono",Menlo,monospace}
+  .ops{padding:10px 22px 16px;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .ops .hint{font-size:10.5px;color:var(--muted-2)}
+  .qfoot{padding:9px 22px;border-top:1px solid var(--line-soft);font-size:10.5px;color:var(--muted-2);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .qfoot .grey{color:var(--muted);background:rgba(122,106,196,.05);border:1px solid var(--line-soft);border-radius:6px;padding:2px 7px}
+
+  /* ── 3 · 自动任务（默认折叠成一行） ── */
+  .jobs{padding:14px 22px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .jobs .txt{flex:1;min-width:220px;font-size:12px}
+  .jobs .txt .k{font-weight:650}
+  .jobs .txt .d{display:block;font-size:10.5px;color:var(--muted-2);margin-top:2px}
+  .jobs-list{border-top:1px solid var(--line-soft)}
+  .jobs-list[hidden]{display:none}
+  .job{display:flex;align-items:center;gap:10px;padding:9px 22px;font-size:11.5px}
+  .job + .job{border-top:1px solid var(--line-soft)}
+  .job .nm{flex:1}
+  .job .nm small{display:block;font-size:10px;color:var(--muted-2);margin-top:1px}
+  .job .when{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;color:var(--muted);white-space:nowrap}
+  .switch{width:28px;height:16px;border-radius:999px;background:rgba(122,106,196,.12);border:1px solid var(--line-soft);position:relative;cursor:pointer;flex:0 0 auto;transition:background .18s,border-color .18s}
+  .switch i{position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(30,20,70,.18);transition:left .18s}
+  .switch.on{background:rgba(47,158,107,.55);border-color:rgba(47,158,107,.55)}
+  .switch.on i{left:15px}
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);background:rgba(27,26,42,.92);color:#fff;font-size:11.5px;padding:8px 14px;border-radius:9px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:9}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  @media (max-width:640px){
+    body{padding:16px 12px 28px}
+    .head{padding:16px 16px 12px}
+    .nums{padding:0 16px 12px;gap:0 12px}
+    .subline{padding:0 16px 12px}
+    .next{padding:14px 16px}
+    .next .btn{width:100%}
+    .stages,.ops,.qfoot,.jobs{padding-left:16px;padding-right:16px}
+    .acts .btn:first-child{display:none}
+    .head .acts{width:100%}
+    .head .acts .btn{flex:1}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- 1 · 库况 -->
+  <div class="card">
+    <div class="head">
+      <div class="who">
+        <div class="eyebrow">LLM Wiki · 知识库</div>
+        <div class="title-line">
+          <span class="name">brain</span>
+          <span class="dir">纯 Markdown 库 · 不建数据库</span>
+        </div>
+        <div class="path mono">/Users/lion/workspace/obsidian-workspace/llm-wiki</div>
+      </div>
+      <div class="acts">
+        <button class="btn">复制路径</button>
+        <button class="btn primary big">在 Obsidian 打开知识库</button>
+      </div>
+    </div>
+
+    <div class="nums">
+      <span class="n"><span class="k">页</span><span class="v">42</span></span>
+      <span class="n"><span class="k">待补页</span><span class="v">7</span></span>
+      <span class="n warn"><span class="k">待编译</span><span class="v">12</span></span>
+      <span class="n"><span class="k">待审</span><span class="v">3</span></span>
+      <span class="n"><span class="k">过期</span><span class="v">9</span></span>
+      <span class="n"><span class="k">断裂</span><span class="v">2</span></span>
+      <span class="n health"><span class="k">健康</span><span class="v">78%</span><span class="bar"><i></i></span></span>
+    </div>
+
+    <div class="subline">
+      <span>占用 38 MB（附件 31 / 中间物 6 / 备份 1）</span>
+      <span class="sep"></span><span>git 关</span>
+      <span class="sep"></span><span>音频 未启用</span>
+      <span class="sep"></span><span class="mono">vault llm-wiki</span>
+    </div>
+  </div>
+
+  <!-- 2 · 建议队列 -->
+  <div class="card">
+    <div class="qhead">
+      <h2>建议队列</h2>
+      <span class="why">一次只推一件事；其余置灰并写原因</span>
+    </div>
+
+    <div class="next">
+      <div class="line">
+        <b>12 条待编译素材</b> 停在 1-raw，编译后才会进 2-wiki
+        <span class="why">先做这一步，库这才算往前走</span>
+      </div>
+      <button class="btn primary">编译素材</button>
+    </div>
+
+    <div class="stages">
+      <button class="stage" data-stage="0"><span class="n">1</span>收集资料</button>
+      <button class="stage" data-stage="1"><span class="n">2</span>确认入库</button>
+      <button class="stage active" data-stage="2"><span class="n">3</span>编译</button>
+      <button class="stage" data-stage="3"><span class="n">4</span>提案审批</button>
+      <button class="stage" data-stage="4"><span class="n">5</span>维护</button>
+    </div>
+
+    <div class="ops" id="ops"></div>
+
+    <div class="qfoot">
+      <span class="grey">确认入库</span><span>队列空，0-inbox 无待确认</span>
+      <span class="grey">合并提案</span><span>3-review 无提案</span>
+    </div>
+  </div>
+
+  <!-- 3 · 自动任务 -->
+  <div class="card">
+    <div class="jobs">
+      <div class="txt">
+        <span class="k">自动任务</span> 9 个 · 7 个已开
+        <span class="d">索引重建、单页体检、提案过期、重复 / 矛盾扫描、过期页提醒、垃圾清理</span>
+      </div>
+      <button class="btn" id="toggleJobs">展开</button>
+    </div>
+
+    <div class="jobs-list" id="jobsList" hidden>
+      <div class="job"><span class="nm">索引重建<small>库变更后重建 2-wiki/index.md</small></span><span class="when">事件</span><span class="switch on"><i></i></span></div>
+      <div class="job"><span class="nm">单页体检<small>保存页面后检查该页</small></span><span class="when">事件</span><span class="switch on"><i></i></span></div>
+      <div class="job"><span class="nm">提案过期<small>3-review 超时提案自动归档</small></span><span class="when">09:10 每天</span><span class="switch on"><i></i></span></div>
+      <div class="job"><span class="nm">重复扫描<small>只出提案，不改页</small></span><span class="when">周一 09:20</span><span class="switch on"><i></i></span></div>
+      <div class="job"><span class="nm">矛盾扫描<small>同一结论前后不一</small></span><span class="when">周一 09:30</span><span class="switch on"><i></i></span></div>
+      <div class="job"><span class="nm">过期页提醒<small>只在面板提示，不动页</small></span><span class="when">09:40 每天</span><span class="switch on"><i></i></span></div>
+      <div class="job"><span class="nm">主题采集<small>采集源与主题可自选</small></span><span class="when">08:30 每天</span><span class="switch"><i></i></span></div>
+      <div class="job"><span class="nm">缺口补页<small>补齐指向不存在的页</small></span><span class="when">手动</span><span class="switch"><i></i></span></div>
+      <div class="job"><span class="nm">垃圾清理<small>先出预览，确认后才删</small></span><span class="when">周日 09:50</span><span class="switch on"><i></i></span></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+  const OPS = {
+    0: [{t:'灵感落盘'}, {t:'文件接收'}, {t:'预处理'}, {t:'采集执行'}],
+    1: [{t:'确认入库', p:true}, {t:'撤回素材'}, {hint:'核对过才进 1-raw'}],
+    2: [{t:'编译素材'}, {t:'缺口补页'}],
+    3: [{t:'合并提案'}, {t:'过期清理'}, {hint:'机器只提议，人来裁决'}],
+    4: [{t:'重建索引'}, {t:'结构体检'}, {t:'去重扫描'}, {t:'矛盾扫描'}, {t:'回滚'}, {t:'安全清理'}, {t:'深度清理'}]
+  }
+  const ops = document.getElementById('ops')
+  const render = (i) => {
+    ops.innerHTML = ''
+    OPS[i].forEach(o => {
+      if (o.hint) { const s = document.createElement('span'); s.className='hint'; s.textContent=o.hint; ops.appendChild(s); return }
+      const b = document.createElement('button')
+      b.className = 'btn' + (o.p ? ' primary' : '')
+      b.textContent = o.t
+      b.addEventListener('click', () => toast(o.t + ' · 设计稿，未接真实动作'))
+      ops.appendChild(b)
+    })
+  }
+  render(2)
+
+  document.querySelectorAll('.stage').forEach(s => {
+    s.addEventListener('click', () => {
+      document.querySelectorAll('.stage').forEach(x => x.classList.remove('active'))
+      s.classList.add('active')
+      render(+s.dataset.stage)
+    })
+  })
+
+  const toast = (msg) => {
+    const el = document.getElementById('toast')
+    el.textContent = msg; el.classList.add('show')
+    clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 1500)
+  }
+  document.querySelectorAll('.btn').forEach(b => {
+    if (b.id === 'toggleJobs') return
+    b.addEventListener('click', () => { if (!b.hasAttribute('disabled')) toast(b.textContent.trim() + ' · 设计稿，未接真实动作') })
+  })
+  document.querySelectorAll('.switch').forEach(sw => {
+    sw.addEventListener('click', () => { sw.classList.toggle('on'); toast(sw.classList.contains('on') ? '已开启（原型）' : '已关闭（原型）') })
+  })
+  const t = document.getElementById('toggleJobs'), l = document.getElementById('jobsList')
+  t.addEventListener('click', () => {
+    const hidden = l.hasAttribute('hidden')
+    if (hidden) { l.removeAttribute('hidden'); t.textContent = '收起' } else { l.setAttribute('hidden', ''); t.textContent = '展开' }
+  })
+</script>
+</body>
+</html>
