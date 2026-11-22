@@ -352,6 +352,15 @@ vault 的登记由「打开知识库」那条链路负责（见 §4.4）。
 
 ---
 
+## 8.5 发布（维护者）
+
+- **npm**：`dsh-plugin-llm-wiki`。仓库里的 `lib/` 是构建产物，已随仓库提交，`dsh plugin add github:…` 可直接装。
+- **自动发布**：`.github/workflows/publish.yml` 用 npm 的 **trusted publishing（OIDC）**，CI 里不放 token。
+  一次性配置：npmjs.com → 该包 → Settings → Trusted Publisher → GitHub Actions，填
+  `Effortful-lion` / `dsh-plugin-llm-wiki` / `publish.yml`。之后推 `v*` 标签即自动发布。
+- 首次发布新包名时，npm 会把版本先「暂存（staged）」：需要账号本人用 2FA 在网页上批准，
+  或本地 `npm publish --otp=<6 位码>`。包里出现 `0.0.0-stage` 是 npm 的暂存占位，不是我们的版本。
+
 ## 9. License
 
 MIT © 2026 [younglion](https://github.com/Effortful-lion)
